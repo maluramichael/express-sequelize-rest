@@ -1,0 +1,13 @@
+{
+  "name": "express-sequelize-rest",
+  "version": "1.0.0",
+  "main": "index.js",
+  "license": "MIT",
+  "maintainers": [
+    "Michael Malura <info@malura.me>"
+  ],
+  "peerDependencies": {
+    "ramda": "^0.25.0",
+    "sequelize": "^4.37.5"
+  }
+}
