@@ -30,7 +30,7 @@ function Getter(Model) {
           return false;
         }
       }).catch(error => {
-        return next({ status: 500, message: `Could not get ${Model.name}` });
+        return next({ status: 500, message: `Could not get ${Model.name}`, error });
       });
     };
   };
@@ -48,7 +48,7 @@ function Lister(Model) {
         next();
         return results.rows;
       }).catch(error => {
-        return next({ status: 500, message: `Could not list ${Model.name}` });
+        return next({ status: 500, message: `Could not list ${Model.name}`, error });
       });
     };
   };
@@ -62,7 +62,7 @@ function Creator(Model) {
         next();
         return result;
       }).catch(error => {
-        return next({ status: 500, message: `Could not create ${Model.name}` });
+        return next({ status: 500, message: `Could not create ${Model.name}`, error });
       });
     };
   };
@@ -87,7 +87,7 @@ function Updater(Model) {
           return next({ status: 404, error });
         }
       }).catch(error => {
-        return next({ status: 500, message: `Could not patch ${Model.name}` });
+        return next({ status: 500, message: `Could not patch ${Model.name}`, error });
       });
     };
   };
@@ -104,7 +104,7 @@ function Deleter(Model) {
       }).then(result => {
         res.json({});
       }).catch(error => {
-        return next({ status: 500, message: `Could not delete ${Model.name}` });
+        return next({ status: 500, message: `Could not delete ${Model.name}`, error });
       });
     };
   };
