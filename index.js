@@ -55,6 +55,7 @@ function Lister(Model) {
         next();
         return results.rows;
       }).catch(error => {
+        debug('lister.middleware.Model.error: %O', error);
         return next({ status: 500, message: `Could not list ${Model.name}`, details: getSequelizeErrors(error) });
       });
     };
