@@ -6,7 +6,8 @@
   "maintainers": [
     "Michael Malura <info@malura.me>"
   ],
-  "peerDependencies": {
+  "dependencies": {
+    "debug": "^3.1.0",
     "ramda": "^0.25.0",
     "sequelize": "^4.37.5"
   }

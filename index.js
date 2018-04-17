@@ -1,7 +1,8 @@
-const Sequelize = require('sequelize');
-const Op = Sequelize.Op;
+const { Op } = require('sequelize');
+const Debug = require('debug');
 const R = require('ramda');
 
+const debug = Debug('express-sequelize-rest');
 const createFilter = req => {
   // limit: Number(req.query._end) - Number(req.query._start),
   // offset: Number(req.query._start),
@@ -10,6 +11,10 @@ const createFilter = req => {
   // ]
   return {};
 };
+
+const getSequelizeErrors = (error) => {
+  return { name: error.name, errors: R.map(R.prop('message'), error.errors) };
+}
 
 function Getter(Model) {
   return function addOptions(options) {
@@ -30,7 +35,7 @@ function Getter(Model) {
           return false;
         }
       }).catch(error => {
-        return next({ status: 500, message: `Could not get ${Model.name}` });
+        return next({ status: 500, message: `Could not get ${Model.name}`, details: getSequelizeErrors(error) });
       });
     };
   };
@@ -38,7 +43,9 @@ function Getter(Model) {
 
 function Lister(Model) {
   return function addOptions(options) {
+    debug('lister.options: %O', options);
     return function middleware(req, res, next) {
+      debug('lister.middleware: %O', req.body);
       return Model.findAndCountAll({
         ...createFilter(req),
         include: [{ all: true }],
@@ -48,7 +55,7 @@ function Lister(Model) {
         next();
         return results.rows;
       }).catch(error => {
-        return next({ status: 500, message: `Could not list ${Model.name}` });
+        return next({ status: 500, message: `Could not list ${Model.name}`, details: getSequelizeErrors(error) });
       });
     };
   };
@@ -56,13 +63,17 @@ function Lister(Model) {
 
 function Creator(Model) {
   return function addOptions(options) {
+    debug('creator.options: %O', options);
     return function middleware(req, res, next) {
+      debug('creator.middleware: %O', req.body);
       return Model.build(req.body, (options || {})).save().then(result => {
+        debug('creator.middleware.Model.build: %O', result);
         res.locals.data = result;
         next();
         return result;
       }).catch(error => {
-        return next({ status: 500, message: `Could not create ${Model.name}` });
+        debug('creator.middleware.Model.build.error: %O', error);
+        return next({ status: 500, message: `Could not create ${Model.name}`, details: getSequelizeErrors(error) });
       });
     };
   };
@@ -87,7 +98,7 @@ function Updater(Model) {
           return next({ status: 404, error });
         }
       }).catch(error => {
-        return next({ status: 500, message: `Could not patch ${Model.name}` });
+        return next({ status: 500, message: `Could not patch ${Model.name}`, details: getSequelizeErrors(error) });
       });
     };
   };
@@ -104,7 +115,7 @@ function Deleter(Model) {
       }).then(result => {
         res.json({});
       }).catch(error => {
-        return next({ status: 500, message: `Could not delete ${Model.name}` });
+        return next({ status: 500, message: `Could not delete ${Model.name}`, details: getSequelizeErrors(error) });
       });
     };
   };
@@ -112,6 +123,7 @@ function Deleter(Model) {
 
 function Responder(status = 200) {
   return function (req, res) {
+    debug('responder req: %s', JSON.stringify(req.body));
     if (res.locals.data) {
       if (R.is(Array, res.locals.data)) {
         res.header('X-Total-Count', res.locals.data.length);
