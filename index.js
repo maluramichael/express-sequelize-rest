@@ -19,10 +19,9 @@ const getSequelizeErrors = (error) => {
 function Getter(Model) {
   return function addOptions(options) {
     return function middlware(req, res, next) {
+      const where = R.mapObjIndexed((value) => ({ [Op.eq]: value }), req.params);
       return Model.findOne({
-        where: {
-          id: { [Op.eq]: req.params.id }
-        },
+        where,
         include: [{ all: true }],
         ...options
       }).then(element => {
@@ -83,10 +82,9 @@ function Creator(Model) {
 function Updater(Model) {
   return function addOptions(options) {
     return function middleware(req, res) {
+      const where = R.mapObjIndexed((value) => ({ [Op.eq]: value }), req.params);
       return Model.findOne({
-        where: {
-          id: { [Op.eq]: req.params.id }
-        },
+        where,
         ...options
       }).then(function (element) {
         if (element) {
@@ -108,10 +106,9 @@ function Updater(Model) {
 function Deleter(Model) {
   return function addOptions(options) {
     return function middlware(req, res) {
+      const where = R.mapObjIndexed((value) => ({ [Op.eq]: value }), req.params);
       return Model.destroy({
-        where: {
-          id: { [Op.eq]: req.params.id }
-        },
+        where,
         ...options
       }).then(result => {
         res.json({});
