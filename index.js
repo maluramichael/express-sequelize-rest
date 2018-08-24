@@ -13,8 +13,14 @@ const createFilter = req => {
 };
 
 const getSequelizeErrors = (error) => {
-  return { name: error.name, errors: R.map(R.prop('message'), error.errors) };
-}
+  return {
+    name: error.name,
+    errors: error.errors ? R.map(R.prop('message'), error.errors) : {
+      message: error.message,
+      stack: error.stack.split('\n')
+    }
+  };
+};
 
 function Getter(Model) {
   return function addOptions(options) {
@@ -81,15 +87,17 @@ function Creator(Model) {
 
 function Updater(Model) {
   return function addOptions(options) {
-    return function middleware(req, res) {
+    return function middleware(req, res, next) {
       const where = R.mapObjIndexed((value) => ({ [Op.eq]: value }), req.params);
       return Model.findOne({
         where,
         ...options
       }).then(function (element) {
         if (element) {
-          element.update(req.body).then(function (instance) {
-            res.json(instance);
+          return element.update(req.body).then(function (instance) {
+            res.locals.data = instance;
+            next();
+            return instance;
           }).catch(function (error) {
             return next({ status: 500, error });
           });
@@ -145,4 +153,4 @@ module.exports = {
     };
   },
   Responder
-}
+};
