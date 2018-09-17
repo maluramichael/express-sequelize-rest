@@ -3,13 +3,47 @@ const Debug = require('debug');
 const R = require('ramda');
 
 const debug = Debug('express-sequelize-rest');
-const createFilter = req => {
-  // limit: Number(req.query._end) - Number(req.query._start),
-  // offset: Number(req.query._start),
-  // order: [
-  //   [req.query._sort, req.query._order]
-  // ]
-  return {};
+const createFilter = (req, Models) => {
+
+  const result = {};
+
+  result.limit = Number(req.query.limit || 10);
+  result.offset = Number(req.query.offset || 0);
+
+  if (req.query.attributes) {
+    try {
+      result.attributes = req.query.attributes.split(',');
+    } catch (error) {
+    }
+  }
+
+  const mapIncludes = (includes) => {
+    return R.map((include) => {
+      const clone = R.clone(include);
+      if (clone.include) {
+        clone.include = mapIncludes(clone.include);
+      }
+      return R.mergeDeepRight(clone, { model: Models[include.model] });
+    }, includes);
+  };
+
+  if (req.query.include && Models) {
+    try {
+      let includes = JSON.parse(req.query.include);
+      result.include = mapIncludes(includes);
+    } catch (error) {
+    }
+  }
+
+  if (req.query.order) {
+
+    try {
+      result.order = R.map(R.split('='), R.split(';', req.query.order));
+    } catch (error) {
+    }
+  }
+
+  return result;
 };
 
 const getSequelizeErrors = (error) => {
@@ -46,16 +80,20 @@ function Getter(Model) {
   };
 }
 
-function Lister(Model) {
+function Lister(Model, Models) {
   return function addOptions(options) {
     debug('lister.options: %O', options);
     return function middleware(req, res, next) {
       debug('lister.middleware: %O', req.body);
-      return Model.findAndCountAll({
-        ...createFilter(req),
+
+      let query = {
         include: [{ all: true }],
-        ...options
-      }).then(results => {
+      };
+
+      query = R.mergeDeepRight(query, options || {});
+      query = R.mergeDeepRight(query, createFilter(req, Models));
+
+      return Model.findAndCountAll(query).then(results => {
         res.locals.data = results.rows;
         next();
         return results.rows;
@@ -74,9 +112,19 @@ function Creator(Model) {
       debug('creator.middleware: %O', req.body);
       return Model.build(req.body, (options || {})).save().then(result => {
         debug('creator.middleware.Model.build: %O', result);
-        res.locals.data = result;
-        next();
-        return result;
+        return Model.find({
+          where: {
+            id: { [Op.eq]: result.id }
+          },
+          include: [{ all: true }]
+        }).then((fullData) => {
+          res.locals.data = fullData;
+          next();
+          return fullData;
+        }).catch((error) => {
+          debug('creator.middleware.Model.find.error: %O', error);
+          return next({ status: 500, message: `Could not create ${Model.name}`, details: getSequelizeErrors(error) });
+        });
       }).catch(error => {
         debug('creator.middleware.Model.build.error: %O', error);
         return next({ status: 500, message: `Could not create ${Model.name}`, details: getSequelizeErrors(error) });
@@ -115,11 +163,16 @@ function Deleter(Model) {
   return function addOptions(options) {
     return function middlware(req, res) {
       const where = R.mapObjIndexed((value) => ({ [Op.eq]: value }), req.params);
-      return Model.destroy({
-        where,
-        ...options
+      return Model.find({
+        where
       }).then(result => {
-        res.json({});
+        if (result) {
+          return result.destroy().then(() => {
+            res.json({});
+          });
+        } else {
+          res.json({});
+        }
       }).catch(error => {
         return next({ status: 500, message: `Could not delete ${Model.name}`, details: getSequelizeErrors(error) });
       });
@@ -143,14 +196,15 @@ function Responder(status = 200) {
 }
 
 module.exports = {
-  CreateRestMiddleware(Model) {
+  CreateRestMiddleware(Model, Models) {
     return {
-      Getter: Getter(Model),
-      Lister: Lister(Model),
-      Creator: Creator(Model),
-      Updater: Updater(Model),
-      Deleter: Deleter(Model)
+      Getter: Getter(Model, Models),
+      Lister: Lister(Model, Models),
+      Creator: Creator(Model, Models),
+      Updater: Updater(Model, Models),
+      Deleter: Deleter(Model, Models)
     };
   },
-  Responder
+  Responder,
+  getSequelizeErrors
 };
