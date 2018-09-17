@@ -1,4 +1,4 @@
-const { Op } = require('sequelize');
+const {Op} = require('sequelize');
 const Debug = require('debug');
 const R = require('ramda');
 
@@ -7,8 +7,13 @@ const createFilter = (req, Models) => {
 
   const result = {};
 
-  result.limit = Number(req.query.limit || 10);
-  result.offset = Number(req.query.offset || 0);
+  if (req.query.limit) {
+    result.limit = Number(req.query.limit || 10);
+  }
+
+  if (req.query.offset) {
+    result.offset = Number(req.query.offset || 0);
+  }
 
   if (req.query.attributes) {
     try {
@@ -23,7 +28,7 @@ const createFilter = (req, Models) => {
       if (clone.include) {
         clone.include = mapIncludes(clone.include);
       }
-      return R.mergeDeepRight(clone, { model: Models[include.model] });
+      return R.mergeDeepRight(clone, {model: Models[include.model]});
     }, includes);
   };
 
@@ -59,10 +64,10 @@ const getSequelizeErrors = (error) => {
 function Getter(Model) {
   return function addOptions(options) {
     return function middlware(req, res, next) {
-      const where = R.mapObjIndexed((value) => ({ [Op.eq]: value }), req.params);
+      const where = R.mapObjIndexed((value) => ({[Op.eq]: value}), req.params);
       return Model.findOne({
         where,
-        include: [{ all: true }],
+        include: [{all: true}],
         ...options
       }).then(element => {
         if (element) {
@@ -70,11 +75,15 @@ function Getter(Model) {
           next();
           return element;
         } else {
-          next({ status: 404, message: 'Instance not found' });
+          next({status: 404, message: 'Instance not found'});
           return false;
         }
       }).catch(error => {
-        return next({ status: 500, message: `Could not get ${Model.name}`, details: getSequelizeErrors(error) });
+        return next({
+          status: 500,
+          message: `Could not get ${Model.name}`,
+          details: getSequelizeErrors(error)
+        });
       });
     };
   };
@@ -87,11 +96,13 @@ function Lister(Model, Models) {
       debug('lister.middleware: %O', req.body);
 
       let query = {
-        include: [{ all: true }],
+        include: [{all: true}],
       };
 
       query = R.mergeDeepRight(query, options || {});
       query = R.mergeDeepRight(query, createFilter(req, Models));
+
+      res.locals.query = query;
 
       return Model.findAndCountAll(query).then(results => {
         res.locals.data = results.rows;
@@ -99,7 +110,11 @@ function Lister(Model, Models) {
         return results.rows;
       }).catch(error => {
         debug('lister.middleware.Model.error: %O', error);
-        return next({ status: 500, message: `Could not list ${Model.name}`, details: getSequelizeErrors(error) });
+        return next({
+          status: 500,
+          message: `Could not list ${Model.name}`,
+          details: getSequelizeErrors(error)
+        });
       });
     };
   };
@@ -114,20 +129,28 @@ function Creator(Model) {
         debug('creator.middleware.Model.build: %O', result);
         return Model.find({
           where: {
-            id: { [Op.eq]: result.id }
+            id: {[Op.eq]: result.id}
           },
-          include: [{ all: true }]
+          include: [{all: true}]
         }).then((fullData) => {
           res.locals.data = fullData;
           next();
           return fullData;
         }).catch((error) => {
           debug('creator.middleware.Model.find.error: %O', error);
-          return next({ status: 500, message: `Could not create ${Model.name}`, details: getSequelizeErrors(error) });
+          return next({
+            status: 500,
+            message: `Could not create ${Model.name}`,
+            details: getSequelizeErrors(error)
+          });
         });
       }).catch(error => {
         debug('creator.middleware.Model.build.error: %O', error);
-        return next({ status: 500, message: `Could not create ${Model.name}`, details: getSequelizeErrors(error) });
+        return next({
+          status: 500,
+          message: `Could not create ${Model.name}`,
+          details: getSequelizeErrors(error)
+        });
       });
     };
   };
@@ -136,7 +159,7 @@ function Creator(Model) {
 function Updater(Model) {
   return function addOptions(options) {
     return function middleware(req, res, next) {
-      const where = R.mapObjIndexed((value) => ({ [Op.eq]: value }), req.params);
+      const where = R.mapObjIndexed((value) => ({[Op.eq]: value}), req.params);
       return Model.findOne({
         where,
         ...options
@@ -147,13 +170,17 @@ function Updater(Model) {
             next();
             return instance;
           }).catch(function (error) {
-            return next({ status: 500, error });
+            return next({status: 500, error});
           });
         } else {
-          return next({ status: 404, error });
+          return next({status: 404, error});
         }
       }).catch(error => {
-        return next({ status: 500, message: `Could not patch ${Model.name}`, details: getSequelizeErrors(error) });
+        return next({
+          status: 500,
+          message: `Could not patch ${Model.name}`,
+          details: getSequelizeErrors(error)
+        });
       });
     };
   };
@@ -162,7 +189,7 @@ function Updater(Model) {
 function Deleter(Model) {
   return function addOptions(options) {
     return function middlware(req, res) {
-      const where = R.mapObjIndexed((value) => ({ [Op.eq]: value }), req.params);
+      const where = R.mapObjIndexed((value) => ({[Op.eq]: value}), req.params);
       return Model.find({
         where
       }).then(result => {
@@ -174,7 +201,11 @@ function Deleter(Model) {
           res.json({});
         }
       }).catch(error => {
-        return next({ status: 500, message: `Could not delete ${Model.name}`, details: getSequelizeErrors(error) });
+        return next({
+          status: 500,
+          message: `Could not delete ${Model.name}`,
+          details: getSequelizeErrors(error)
+        });
       });
     };
   };
