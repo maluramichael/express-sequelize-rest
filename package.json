@@ -2,7 +2,7 @@
   "name": "express-sequelize-rest",
   "version": "1.0.0",
   "main": "index.js",
-  "license": "MIT",
+  "license": "Apache-2.0",
   "maintainers": [
     "Michael Malura <info@malura.me>"
   ],
